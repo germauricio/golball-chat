@@ -13,9 +13,9 @@ const httpServer = app.listen('8080');
 
 const io = require("socket.io")(httpServer, {
   cors: {
-    origin: '*'
+    origin: '*',
+    methods: ["GET", "POST"]
   },
-  methods: ["GET", "POST"]
 });
 
 const messages: any = [];
