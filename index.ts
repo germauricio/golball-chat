@@ -1,5 +1,14 @@
 const express = require('express');
+const cors = require('cors');
+
 const app = express();
+
+const corsOrigin ={
+  origin:'http://localhost:3000', //or whatever port your frontend is using
+  credentials:true,            
+  optionSuccessStatus:200
+}
+app.use(cors(corsOrigin));
 
 app.use(function(req: any, res: any, next: any) {
   res.header("Access-Control-Allow-Origin", "*");
