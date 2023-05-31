@@ -1,0 +1,26 @@
+.DS_Store
+
+# Dependency directory
+node_modules
+
+build
+yarn-error.log
+stats
+.serverless
+.env.local
+.env.dev.local
+
+# Exclude any file in /layers
+/layers/*/**
+
+# Except package.json a yarn.lock
+!package.json
+!yarn.lock
+
+# Exclude any file in /layers
+/layers/*/**
+
+# Except package.json a yarn.lock
+!package.json
+!yarn.lock
+!/layers/*/*.zip
