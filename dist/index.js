@@ -10,7 +10,9 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
 };
 const express = require('express');
 const cors = require('cors');
+const Redis = require("ioredis");
 const app = express();
+const redisClient = new Redis();
 const corsOrigin = {
     origin: '*',
     optionSuccessStatus: 200
@@ -22,6 +24,10 @@ const io = require("socket.io")(httpServer, {
         methods: ["PUT", "GET", "POST", "DELETE", "OPTIONS"],
         credentials: false
     },
+    adapter: require("socket.io-redis")({
+        pubClient: redisClient,
+        subClient: redisClient.duplicate(),
+    }),
     // transports: ['websocket', 'polling']
 });
 app.use(cors(corsOrigin));
@@ -31,11 +37,20 @@ io.engine.on("initial_headers", (headers, req) => {
 io.engine.on("headers", (headers, req) => {
     headers["Access-Control-Allow-Origin"] = "*"; // url to all
 });
-const messages = [];
+const { RedisMessageStore } = require("./messageStore");
+const messageStore = new RedisMessageStore(redisClient);
+io.use((socket, next) => {
+    const userID = socket.handshake.auth.userID;
+    socket.userID = userID;
+    socket.join(userID);
+    next();
+});
 io.on("connection", (socket) => __awaiter(void 0, void 0, void 0, function* () {
-    socket.emit("newMessage", messages);
-    socket.on("newMessage", (args) => {
-        messages.push(args);
-        socket.broadcast.emit("newMessage", messages);
-    });
+    console.log("connected bro!");
+    const oldMessages = yield messageStore.findMessagesForUser(socket.userID);
+    io.to(socket.userID).emit('oldMessages', oldMessages);
+    socket.on("newMessage", (args) => __awaiter(void 0, void 0, void 0, function* () {
+        yield messageStore.saveMessage({ nickname: args.nickname, from: socket.userID, to: args.to, text: args.text });
+        io.to(args.to).to(socket.userID.toString()).emit("newMessage", args);
+    }));
 }));

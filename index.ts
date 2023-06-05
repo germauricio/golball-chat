@@ -1,7 +1,8 @@
 const express = require('express');
 const cors = require('cors');
-
+const Redis = require("ioredis");
 const app = express();
+const redisClient = new Redis();
 
 const corsOrigin ={
   origin:'*', //or whatever port your frontend is using
@@ -16,6 +17,10 @@ const io = require("socket.io")(httpServer, {
     methods: ["PUT", "GET", "POST", "DELETE", "OPTIONS"],
     credentials: false
   },
+  adapter: require("socket.io-redis")({
+    pubClient: redisClient,
+    subClient: redisClient.duplicate(),
+  }),
   // transports: ['websocket', 'polling']
 });
 
@@ -29,15 +34,26 @@ io.engine.on("headers", (headers: any, req: any) => {
   headers["Access-Control-Allow-Origin"] = "*"; // url to all
 });
 
-const messages: any = [];
+const { RedisMessageStore } = require("./messageStore");
+const messageStore = new RedisMessageStore(redisClient);
+
+io.use((socket: any, next: any) => {
+  const userID = socket.handshake.auth.userID;
+  socket.userID = userID;
+  socket.join(userID);
+
+  next();
+});
 
 io.on("connection", async (socket: any) => {
   console.log("connected bro!")
-  socket.emit("newMessage", messages);
 
-  socket.on("newMessage", (args:any) => {
-    messages.push(args);
-    socket.emit("newMessage", messages);
-    socket.broadcast.emit("newMessage", messages);
+  const oldMessages = await messageStore.findMessagesForUser(socket.userID);
+  io.to(socket.userID).emit('oldMessages', oldMessages);
+
+
+  socket.on("newMessage", async (args:any) => {
+    await messageStore.saveMessage({nickname: args.nickname, from: socket.userID, to: args.to, text: args.text});
+    io.to(args.to).to(socket.userID.toString()).emit("newMessage", args);
   });
 });
