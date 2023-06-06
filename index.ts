@@ -48,12 +48,13 @@ io.use((socket: any, next: any) => {
 io.on("connection", async (socket: any) => {
   console.log("connected bro!")
 
-  const oldMessages = await messageStore.findMessagesForUser(socket.userID);
-  io.to(socket.userID).emit('oldMessages', oldMessages);
-
+  socket.on("oldMessages", async (args: any) => {
+    const oldMessages = await messageStore.findMessagesForUser(socket.userID, args.chosenUserID);
+    io.to(socket.userID).emit('oldMessages', oldMessages);
+  });
 
   socket.on("newMessage", async (args:any) => {
     await messageStore.saveMessage({nickname: args.nickname, from: socket.userID, to: args.to, text: args.text});
-    io.to(args.to).to(socket.userID.toString()).emit("newMessage", args);
+    io.to(args.to.user_id).to(socket.userID.toString()).emit("newMessage", args);
   });
 });

@@ -47,10 +47,12 @@ io.use((socket, next) => {
 });
 io.on("connection", (socket) => __awaiter(void 0, void 0, void 0, function* () {
     console.log("connected bro!");
-    const oldMessages = yield messageStore.findMessagesForUser(socket.userID);
-    io.to(socket.userID).emit('oldMessages', oldMessages);
+    socket.on("oldMessages", (args) => __awaiter(void 0, void 0, void 0, function* () {
+        const oldMessages = yield messageStore.findMessagesForUser(socket.userID, args.chosenUserID);
+        io.to(socket.userID).emit('oldMessages', oldMessages);
+    }));
     socket.on("newMessage", (args) => __awaiter(void 0, void 0, void 0, function* () {
         yield messageStore.saveMessage({ nickname: args.nickname, from: socket.userID, to: args.to, text: args.text });
-        io.to(args.to).to(socket.userID.toString()).emit("newMessage", args);
+        io.to(args.to.user_id).to(socket.userID.toString()).emit("newMessage", args);
     }));
 }));

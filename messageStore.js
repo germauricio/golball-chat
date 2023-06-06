@@ -1,7 +1,6 @@
 /* abstract */ class MessageStore {
   saveMessage(message) {}
   findMessagesForUser(userID) {}
-  message = [];
 }
 
 class InMemoryMessageStore extends MessageStore {
@@ -14,9 +13,9 @@ class InMemoryMessageStore extends MessageStore {
     this.messages.push(message);
   }
 
-  findMessagesForUser(userID) {
+  findMessagesForUsers(userID, otherUserID) {
     return this.messages.filter(
-      ({ from, to }) => from === userID || to === userID
+      ({ from, to }) => (from === userID && to.user_id === otherUserID) || (to.user_id === userID && from === otherUserID)
     );
   }
 }
@@ -34,17 +33,19 @@ class RedisMessageStore extends MessageStore {
     this.redisClient
       .multi()
       .rpush(`messages:${message.from}`, value)
-      .rpush(`messages:${message.to}`, value)
+      .rpush(`messages:${message.to.user_id}`, value)
       .expire(`messages:${message.from}`, CONVERSATION_TTL)
-      .expire(`messages:${message.to}`, CONVERSATION_TTL)
+      .expire(`messages:${message.to.user_id}`, CONVERSATION_TTL)
       .exec();
   }
 
-  findMessagesForUser(userID) {
+  findMessagesForUser(userID, otherUserID) {
     return this.redisClient
       .lrange(`messages:${userID}`, 0, -1)
       .then((results) => {
-        return results.map((result) => JSON.parse(result));
+        return results.map((result) => JSON.parse(result)).filter(
+          ({ from, to }) => (from === userID && to.user_id === otherUserID) || (to.user_id === userID && from === otherUserID)
+        );
       });
   }
 }
